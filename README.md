@@ -19,3 +19,8 @@ Well, web hooks are just endpoints on a server that can be posted to by a sender
 ### Why Rust?
 
 I am not sure if it's relevant, but I like it.
+
+## Diagrams
+
+![Event Driven Diagram](./images/event_driven.png)
+![First Page Load Diagram](./images/request_data.png)

@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+
+{% block resources %}
+    <script type="module" src="/static/dist/index.js"></script>
+{% endblock %}
+
+{% block content %}
+    <div hx-ext="sse" sse-connect="/events" sse-swap="message">
+
+    </div>
+{% endblock %}

@@ -11,7 +11,7 @@
 - [ ] Security for webhook (IP whitelisting? Using secrets through headers?)
 - [ ] Authentication for students, so only they can view it.
 - [ ] Have the right data structure/format to display various counter informations (Copy the one in school)
-- [ ] Save to a file/sqlite, so that users can see the current state/ticket number on first page load
+- [x] Save to a file/sqlite, so that users can see the current state/ticket number on first page load
 
 ## Nice to Have
 

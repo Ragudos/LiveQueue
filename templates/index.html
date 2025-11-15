@@ -6,6 +6,6 @@
 
 {% block content %}
     <div hx-ext="sse" sse-connect="/events" sse-swap="message">
-
+        {{ initial_html | safe }}
     </div>
 {% endblock %}

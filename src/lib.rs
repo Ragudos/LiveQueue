@@ -12,7 +12,14 @@ use axum::{
 };
 use futures_util::stream::Stream;
 use serde::{Deserialize, Serialize};
-use std::{convert::Infallible, env, net::SocketAddr};
+use std::{
+    convert::Infallible,
+    env,
+    fs::{self, File},
+    io::{Read, Write},
+    net::SocketAddr,
+    path::Path,
+};
 use tokio::sync::broadcast;
 use tower_http::services::ServeDir;
 use tracing::info;
@@ -25,19 +32,25 @@ pub struct TicketUpdate {
 
 #[derive(Template)]
 #[template(path = "index.html")]
-struct TemplateIndex;
+struct TemplateIndex {
+    initial_html: String,
+}
 
 #[derive(Template)]
 #[template(path = "components/ticket_update.html")]
-pub struct TemplateTicketUpdate {
-    pub ticket_number: u32,
-    pub counter: u32,
+struct TemplateTicketUpdate {
+    ticket_number: u32,
+    counter: u32,
 }
 
 #[derive(Debug, displaydoc::Display, thiserror::Error)]
 enum AppError {
     /// could not render template
     Render(#[from] askama::Error),
+    /// something went wrong
+    FS(#[from] std::io::Error),
+    /// parsing error
+    SERDE(#[from] serde_json::Error),
 }
 
 impl IntoResponse for AppError {
@@ -48,6 +61,8 @@ impl IntoResponse for AppError {
 
         let status = match &self {
             AppError::Render(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::FS(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::SERDE(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let tmpl = Tmpl {};
         if let Ok(body) = tmpl.render() {
@@ -67,13 +82,48 @@ async fn update_ticket(
     State(state): State<AppState>,
     Json(payload): Json<TicketUpdate>,
 ) -> Result<&'static str, AppError> {
+    let json_string = serde_json::to_string_pretty(&payload)?;
+    let mut file = File::create(Path::new("state.json"))?;
+
+    file.write_all(json_string.as_bytes())?;
+
+    tracing::info!("state.json updated!");
+
     let _ = state.tx.send(payload.clone());
 
     Ok("Updated")
 }
 
+fn load_state() -> Option<TicketUpdate> {
+    let path = Path::new("state.json");
+
+    let mut file = fs::File::open(&path).ok()?;
+    let mut content = String::new();
+
+    file.read_to_string(&mut content).ok()?;
+
+    if content.trim().is_empty() {
+        return None;
+    }
+
+    let data: TicketUpdate = serde_json::from_str(&content).ok()?;
+
+    Some(data)
+}
+
 async fn index() -> Result<impl IntoResponse, AppError> {
-    let tmp = TemplateIndex {};
+    let tmp = match load_state() {
+        Some(data) => TemplateIndex {
+            initial_html: TemplateTicketUpdate {
+                counter: data.counter,
+                ticket_number: data.ticket_number,
+            }
+            .render()?,
+        },
+        None => TemplateIndex {
+            initial_html: String::new(),
+        },
+    };
 
     Ok(Html(tmp.render()?))
 }
